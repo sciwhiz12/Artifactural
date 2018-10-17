@@ -23,10 +23,10 @@ public interface Artifact {
 
     Artifact apply(ArtifactTransformer transformer);
 
-    Artifact.Cached cache(ArtifactCache cache, String specifier);
+    Artifact.Cached cache(ArtifactCache cache);
 
-    default Artifact.Cached optionallyCache(ArtifactCache cache, String specifier) {
-        return this instanceof Artifact.Cached ? (Artifact.Cached) this : cache(cache, specifier);
+    default Artifact.Cached optionallyCache(ArtifactCache cache) {
+        return this instanceof Artifact.Cached ? (Artifact.Cached) this : cache(cache);
     }
 
     boolean isPresent();
@@ -35,8 +35,10 @@ public interface Artifact {
 
     interface Cached extends Artifact {
 
+        // Gets the file location, AND writes the file to disc if it hasn't already.
         File asFile() throws IOException, MissingArtifactException;
 
+        // Gets the file location, but doesn't guarantee that it exists. As the wrapped Artifact may not of been written. What's the point of this?
         File getFileLocation() throws IOException, MissingArtifactException;
 
     }

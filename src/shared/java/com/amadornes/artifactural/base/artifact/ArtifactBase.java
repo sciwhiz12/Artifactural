@@ -41,8 +41,13 @@ public abstract class ArtifactBase implements Artifact {
     }
 
     @Override
-    public Artifact.Cached cache(ArtifactCache cache, String specifier) {
-        return cache.store(this, specifier);
+    public Artifact.Cached cache(ArtifactCache cache) {
+        return cache.store(this);
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + "(" + identifier + ", " + type +", " + metadata;
     }
 
 }

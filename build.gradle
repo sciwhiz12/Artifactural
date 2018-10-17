@@ -25,6 +25,7 @@ configurations {
 
 dependencies {
     sharedImplementation sourceSets.api.output
+    sharedImplementation 'commons-io:commons-io:2.4'
 
     gradlecompImplementation sourceSets.shared.output
     gradlecompImplementation gradleApi()

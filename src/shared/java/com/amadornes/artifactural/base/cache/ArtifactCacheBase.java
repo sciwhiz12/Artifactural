@@ -74,8 +74,8 @@ public abstract class ArtifactCacheBase implements ArtifactCache {
             }
 
             @Override
-            public Artifact.Cached cache(ArtifactCache cache, String specifier) {
-                return artifact.cache(cache, specifier);
+            public Artifact.Cached cache(ArtifactCache cache) {
+                return artifact.cache(cache);
             }
 
             @Override
@@ -100,7 +100,10 @@ public abstract class ArtifactCacheBase implements ArtifactCache {
             public File getFileLocation() throws MissingArtifactException {
                 return file;
             }
-
+            @Override
+            public String toString() {
+                return "wrapped(" + artifact + ", " + file + ")";
+            }
         };
     }
 

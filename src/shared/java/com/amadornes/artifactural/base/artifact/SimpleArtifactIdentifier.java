@@ -39,4 +39,13 @@ public class SimpleArtifactIdentifier implements ArtifactIdentifier {
         return extension;
     }
 
+    @Override
+    public String toString() {
+        String ret = getGroup() + ':' + getName() + ':' + getVersion();
+        if (classifier != null)
+            ret += ':' + getClassifier();
+        if ("jar".equals(extension))
+            ret += '@' + getExtension();
+        return ret;
+    }
 }

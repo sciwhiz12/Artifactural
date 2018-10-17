@@ -43,6 +43,11 @@ public class SimpleArtifactMetadata implements ArtifactMetadata {
         }
     }
 
+    @Override
+    public String toString() {
+        return "SimpleArtifactMetadata(" + entries.toString() + ", " + getHash() + ")";
+    }
+
     private static class Entry {
 
         private final String key, value;

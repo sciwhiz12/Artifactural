@@ -82,6 +82,11 @@ public class StreamableArtifact extends ArtifactBase {
             return file;
         }
 
+        @Override
+        public String toString() {
+            return "StreamableFileArtifact(" + file + ")";
+        }
+
     }
 
 }

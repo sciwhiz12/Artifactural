@@ -35,9 +35,18 @@ final class Internal {
             return "missing";
         }
 
+        @Override
+        public String toString() {
+            return "NO_IDENTIFIER";
+        }
+
     };
 
     static final Artifact NO_ARTIFACT = new Artifact.Cached() {
+        @Override
+        public String toString() {
+            return "NO_ARTIFACT";
+        }
 
         @Override
         public ArtifactIdentifier getIdentifier() {
@@ -55,6 +64,11 @@ final class Internal {
                 @Override
                 public String getHash() {
                     return "ERROR";
+                }
+
+                @Override
+                public String toString() {
+                    return "NO_METADATA";
                 }
             };
         }
@@ -75,7 +89,7 @@ final class Internal {
         }
 
         @Override
-        public Artifact.Cached cache(ArtifactCache cache, String specifier) {
+        public Artifact.Cached cache(ArtifactCache cache) {
             return this;
         }
 
