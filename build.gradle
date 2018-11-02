@@ -1,8 +1,23 @@
+plugins {
+  id 'net.minecrell.licenser' version '0.3'
+  id 'org.ajoberstar.grgit' version '2.3.0'
+  //id 'com.github.johnrengelman.shadow' version '2.0.4'
+}
+
 apply plugin: 'java'
 apply plugin: 'maven-publish'
 
-group = 'com.amadornes'
-version = '1.0.0'
+group = 'net.minecraftforge'
+version = gitVersion()
+def gitVersion() {
+    def raw = grgit.describe(longDescr: true)
+    def desc = (raw == null ? 'unknown-unknown-unknown' : raw).split('-') as List
+    def hash = desc.remove(desc.size() - 1)
+    def offset = desc.remove(desc.size() - 1)
+    def tag = desc.join('-')
+    def branch = grgit.branch.current().name    
+    return "${tag}.${offset}" //${t -> if (branch != 'master') t << '-' + branch}"
+}
 
 sourceSets {
     api
@@ -43,6 +58,11 @@ jar {
     from sourceSets.gradlecomp.output
 }
 
+
+license {
+    header = file("$rootDir/LICENSE-header.txt")
+}
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
@@ -54,16 +74,16 @@ publishing {
                 name = project.archivesBaseName
                 packaging = 'jar'
                 description = 'A Gradle artifact processing and management tool'
-                url = 'https://github.com/amadornes/Artifactural/'
+                url = 'https://github.com/MinecraftForge/Artifactural/'
 
                 scm {
-                    url = 'https://github.com/amadornes/Artifactural/'
-                    connection = 'scm:git:git://github.com/amadornes/Artifactural.git'
-                    developerConnection = 'scm:git:git@github.com:amadornes/Artifactural.git'
+                    url = 'https://github.com/MinecraftForge/Artifactural/'
+                    connection = 'scm:git:git://github.com/MinecraftForge/Artifactural.git'
+                    developerConnection = 'scm:git:git@github.com:MinecraftForge/Artifactural.git'
                 }
                 issueManagement {
                     system = 'github'
-                    url = 'https://github.com/amadornes/Artifactural/issues'
+                    url = 'https://github.com/MinecraftForge/Artifactural/issues'
                 }
                 licenses {
                     license {
