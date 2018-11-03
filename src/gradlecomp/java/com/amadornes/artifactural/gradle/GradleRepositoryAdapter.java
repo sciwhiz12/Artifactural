@@ -22,16 +22,15 @@ package com.amadornes.artifactural.gradle;
 import com.amadornes.artifactural.api.artifact.Artifact;
 import com.amadornes.artifactural.api.artifact.ArtifactIdentifier;
 import com.amadornes.artifactural.api.artifact.MissingArtifactException;
+import com.amadornes.artifactural.api.repository.ArtifactProvider;
 import com.amadornes.artifactural.api.repository.Repository;
 import com.amadornes.artifactural.base.artifact.SimpleArtifactIdentifier;
 import com.amadornes.artifactural.base.cache.LocatedArtifactCache;
 
 import org.gradle.api.artifacts.ComponentMetadataSupplierDetails;
-import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.artifacts.component.ComponentArtifactIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
-import org.gradle.api.attributes.AttributeContainer;
 import org.gradle.api.internal.artifacts.BaseRepositoryFactory;
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.ConfiguredModuleComponentRepository;
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.ModuleComponentRepositoryAccess;
@@ -41,23 +40,15 @@ import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactR
 import org.gradle.api.internal.artifacts.repositories.ResolutionAwareRepository;
 import org.gradle.api.internal.artifacts.repositories.resolver.MavenResolver;
 import org.gradle.api.internal.artifacts.repositories.resolver.MetadataFetchingCost;
-import org.gradle.api.internal.attributes.AttributesSchemaInternal;
-import org.gradle.api.internal.attributes.ImmutableAttributesFactory;
 import org.gradle.api.internal.component.ArtifactType;
 import org.gradle.internal.action.InstantiatingAction;
-import org.gradle.internal.component.external.model.ComponentVariant;
-import org.gradle.internal.component.external.model.ModuleComponentArtifactMetadata;
 import org.gradle.internal.component.external.model.ModuleComponentResolveMetadata;
 import org.gradle.internal.component.external.model.ModuleDependencyMetadata;
 import org.gradle.internal.component.external.model.MutableModuleComponentResolveMetadata;
 import org.gradle.internal.component.model.ComponentArtifactMetadata;
 import org.gradle.internal.component.model.ComponentOverrideMetadata;
 import org.gradle.internal.component.model.ComponentResolveMetadata;
-import org.gradle.internal.component.model.ConfigurationMetadata;
 import org.gradle.internal.component.model.ModuleSource;
-import org.gradle.internal.hash.HashValue;
-import org.gradle.internal.impldep.com.google.common.base.Optional;
-import org.gradle.internal.impldep.com.google.common.collect.ImmutableList;
 import org.gradle.internal.nativeintegration.filesystem.FileSystem;
 import org.gradle.internal.nativeintegration.services.FileSystems;
 import org.gradle.internal.resolve.result.BuildableArtifactResolveResult;
@@ -77,9 +68,7 @@ import org.gradle.internal.resource.transfer.DefaultCacheAwareExternalResourceAc
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -103,10 +92,14 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
 
     private final Repository repository;
     private final DefaultMavenLocalArtifactRepository local;
+    private final String root;
+    private final LocatedArtifactCache cache;
 
     private GradleRepositoryAdapter(Repository repository, DefaultMavenLocalArtifactRepository local) {
         this.repository = repository;
         this.local = local;
+        this.root = cleanRoot(local.getUrl());
+        this.cache = new LocatedArtifactCache(new File(root));
     }
 
     @Override
@@ -194,8 +187,6 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
 
     private class GeneratingFileResourceRepository implements FileResourceRepository {
         private final FileSystem fileSystem = FileSystems.getDefault();
-        private final String root = cleanRoot(GradleRepositoryAdapter.this.local.getUrl());
-        private final LocatedArtifactCache cache = new LocatedArtifactCache(new File(root));
 
         @Override
         public ExternalResourceRepository withProgressLogging() {
@@ -263,6 +254,20 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
             } catch (MissingArtifactException | IOException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    //TODO: Make this a artifact provider interface with a proper API so we dont have direct reference to GradleRepoAdapter in consumers.
+    public File getArtifact(ArtifactIdentifier identifier) {
+        Artifact art = repository.getArtifact(identifier);
+        if (!art.isPresent())
+            return null;
+
+        Artifact.Cached cached = art.optionallyCache(cache);
+        try {
+            return cached.asFile();
+        } catch (MissingArtifactException | IOException e) {
+            throw new RuntimeException(e);
         }
     }
 }
