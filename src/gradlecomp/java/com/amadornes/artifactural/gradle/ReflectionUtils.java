@@ -21,6 +21,7 @@ package com.amadornes.artifactural.gradle;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.function.UnaryOperator;
 
 public class ReflectionUtils {
@@ -61,6 +62,15 @@ public class ReflectionUtils {
             for (Field f : clazz.getDeclaredFields()) {
                 if (f.getName().equals(name)) {
                     f.setAccessible(true);
+                    if ((f.getModifiers() & Modifier.FINAL) != 0) {
+                        try {
+                            Field modifiers = Field.class.getDeclaredField("modifiers");
+                            modifiers.setAccessible(true);
+                            modifiers.setInt(f, f.getModifiers() & ~Modifier.FINAL);
+                        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
                     return f;
                 }
             }

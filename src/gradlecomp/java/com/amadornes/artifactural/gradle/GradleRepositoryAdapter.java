@@ -22,7 +22,6 @@ package com.amadornes.artifactural.gradle;
 import com.amadornes.artifactural.api.artifact.Artifact;
 import com.amadornes.artifactural.api.artifact.ArtifactIdentifier;
 import com.amadornes.artifactural.api.artifact.MissingArtifactException;
-import com.amadornes.artifactural.api.repository.ArtifactProvider;
 import com.amadornes.artifactural.api.repository.Repository;
 import com.amadornes.artifactural.base.artifact.SimpleArtifactIdentifier;
 import com.amadornes.artifactural.base.cache.LocatedArtifactCache;
@@ -38,6 +37,8 @@ import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.Resol
 import org.gradle.api.internal.artifacts.repositories.AbstractArtifactRepository;
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository;
 import org.gradle.api.internal.artifacts.repositories.ResolutionAwareRepository;
+import org.gradle.api.internal.artifacts.repositories.resolver.ExternalResourceArtifactResolver;
+import org.gradle.api.internal.artifacts.repositories.resolver.ExternalResourceResolver;
 import org.gradle.api.internal.artifacts.repositories.resolver.MavenResolver;
 import org.gradle.api.internal.artifacts.repositories.resolver.MetadataFetchingCost;
 import org.gradle.api.internal.component.ArtifactType;
@@ -118,10 +119,12 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
         DefaultCacheAwareExternalResourceAccessor accessor = ReflectionUtils.get(resolver, "mavenMetaDataLoader.cacheAwareExternalResourceAccessor.delegate");
         ReflectionUtils.alter(accessor, "delegate", prev -> repo); // DefaultCacheAwareExternalResourceAccessor.delegate
         ReflectionUtils.alter(accessor, "fileResourceRepository", prev -> repo); // DefaultCacheAwareExternalResourceAccessor.fileResourceRepository
-        //ReflectionUtils.alter(resolver, "localAccess", AccessWrapper<MavenLocalRepositoryAccess>::new);
+        ExternalResourceArtifactResolver extResolver = ReflectionUtils.invoke(resolver, ExternalResourceResolver.class, "createArtifactResolver"); //Makes the resolver and caches it.
+        ReflectionUtils.alter(extResolver, "repository", prev -> repo);
+        //File transport references, Would be better to get a reference to the transport and work from there, but don't see it stored anywhere.
+        ReflectionUtils.alter(resolver, "cachingResourceAccessor.this$0.repository", prev -> repo);
+        ReflectionUtils.alter(resolver, "cachingResourceAccessor.delegate.delegate", prev -> repo);
 
-        //return resolver;
-        //return new Resolver(resolver);
         return new ConfiguredModuleComponentRepository() {
             private final ModuleComponentRepositoryAccess local = wrap(resolver.getLocalAccess());
             private final ModuleComponentRepositoryAccess remote = wrap(resolver.getRemoteAccess());
