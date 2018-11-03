@@ -58,6 +58,13 @@ jar {
     from sourceSets.gradlecomp.output
 }
 
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.api.allSource
+    from sourceSets.shared.allSource
+    from sourceSets.gradlecomp.allSource
+}
+
 
 license {
     header = file("$rootDir/LICENSE-header.txt")
@@ -67,6 +74,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
+            artifact tasks.sourcesJar
             pom {
                 groupId = project.group
                 version = project.version
