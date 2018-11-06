@@ -190,6 +190,12 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
 
     private class GeneratingFileResourceRepository implements FileResourceRepository {
         private final FileSystem fileSystem = FileSystems.getDefault();
+        private void debug(String message) {
+            //System.out.println(message);
+        }
+        private void log(String message) {
+            System.out.println(message);
+        }
 
         @Override
         public ExternalResourceRepository withProgressLogging() {
@@ -198,13 +204,13 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
 
         @Override
         public LocalBinaryResource localResource(File file) {
-            System.out.println("localResource: " + file);
+            debug("localResource: " + file);
             return null;
         }
 
         @Override
         public LocallyAvailableExternalResource resource(File file) {
-            System.out.println("resource(File): " + file);
+            debug("resource(File): " + file);
             return findArtifact(file.getAbsolutePath().replace('\\', '/'));
         }
 
@@ -215,23 +221,23 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
 
         @Override
         public LocallyAvailableExternalResource resource(ExternalResourceName location, boolean revalidate) {
-            System.out.println("resource(ExternalResourceName,boolean): " + location + ", " + revalidate);
+            debug("resource(ExternalResourceName,boolean): " + location + ", " + revalidate);
             return findArtifact(location.getUri().getPath().replace('\\', '/'));
         }
 
         @Override
         public LocallyAvailableExternalResource resource(File file, URI originUri, ExternalResourceMetaData originMetadata) {
-            System.out.println("resource(File,URI,ExternalResourceMetaData): " + file + ", " + originUri + ", " + originMetadata);
+            debug("resource(File,URI,ExternalResourceMetaData): " + file + ", " + originUri + ", " + originMetadata);
             return findArtifact(file.getAbsolutePath().replace('\\', '/'));
         }
 
         private LocallyAvailableExternalResource findArtifact(String path) {
             if (path.startsWith(root)) {
                 String relative = path.substring(root.length());
-                System.out.println("  Relative: " + relative);
+                debug("  Relative: " + relative);
                 Matcher matcher = URL_PATTERN.matcher(relative);
                 if (!matcher.matches()) {
-                    System.out.println("  Matcher Failed: " + relative);
+                    log("  Matcher Failed: " + relative);
                 } else {
                     ArtifactIdentifier identifier = new SimpleArtifactIdentifier(
                         matcher.group("group").replace('/', '.'),
@@ -243,7 +249,7 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
                     return wrap(artifact, identifier);
                 }
             } else {
-                System.out.println("Unknown root: " + path);
+                log("Unknown root: " + path);
             }
             return new LocalFileStandInExternalResource(new File(path), fileSystem);
         }
