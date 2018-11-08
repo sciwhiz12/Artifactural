@@ -236,9 +236,7 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
                 String relative = path.substring(root.length());
                 debug("  Relative: " + relative);
                 Matcher matcher = URL_PATTERN.matcher(relative);
-                if (!matcher.matches()) {
-                    log("  Matcher Failed: " + relative);
-                } else {
+                if (matcher.matches()) {
                     ArtifactIdentifier identifier = new SimpleArtifactIdentifier(
                         matcher.group("group").replace('/', '.'),
                         matcher.group("name"),
@@ -247,6 +245,19 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
                         matcher.group("extension"));
                     Artifact artifact = repository.getArtifact(identifier);
                     return wrap(artifact, identifier);
+                } else if (relative.endsWith("maven-metadata.xml")) {
+                    String tmp = relative.substring(0, relative.length() - "maven-metadata.xml".length() - 1);
+                    int idx = tmp.lastIndexOf('/');
+                    if (idx != -1) {
+                        File ret = repository.getMavenMetadata(tmp.substring(0, idx - 1), tmp.substring(idx));
+                        if (ret != null) {
+                            return new LocalFileStandInExternalResource(ret, fileSystem);
+                        }
+                    }
+                } else if (relative.endsWith("/")) {
+                    debug("    Directory listing not supported");
+                } else {
+                    log("  Matcher Failed: " + relative);
                 }
             } else {
                 log("Unknown root: " + path);

@@ -19,11 +19,26 @@
 
 package com.amadornes.artifactural.api.repository;
 
+import java.io.File;
+
 import com.amadornes.artifactural.api.artifact.Artifact;
 import com.amadornes.artifactural.api.artifact.ArtifactIdentifier;
 
 public interface Repository {
 
     Artifact getArtifact(ArtifactIdentifier identifier);
+
+    /**
+     * Returns a file in maven-metadata.xml format for the specified artifact,
+     * this is used by gradle to list all known versions, so that it can resolve wildcard
+     * dependencies such as foo:bar:1.+
+     *
+     * @param group Group
+     * @param name Artifact name
+     * @return maven-metadata.xml file listing all versions of the artifact this repo can provide. Or null if you don't want to list any.
+     */
+    default File getMavenMetadata(String group, String name) {
+        return null;
+    }
 
 }
