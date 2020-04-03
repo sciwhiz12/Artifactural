@@ -37,7 +37,14 @@ public class ReflectionUtils {
             }
             Field f = findField(target.getClass(), name);
             if (f == null) throw new IllegalStateException("Could not find '" + name + "'");
-            f.set(target, operator.apply((T)f.get(target)));
+
+            T oldV = (T)f.get(target);
+            T newV = operator.apply(oldV);
+            f.set(target, newV);
+
+            if (f.get(target) != newV) {
+                throw new IllegalStateException("Failed to set new value on " + f.getDeclaringClass().getName() + "." + f.getName());
+            }
         } catch (IllegalAccessException ex) {
             throw new RuntimeException(ex);
         }
@@ -62,14 +69,8 @@ public class ReflectionUtils {
             for (Field f : clazz.getDeclaredFields()) {
                 if (f.getName().equals(name)) {
                     f.setAccessible(true);
-                    if ((f.getModifiers() & Modifier.FINAL) != 0) {
-                        try {
-                            Field modifiers = Field.class.getDeclaredField("modifiers");
-                            modifiers.setAccessible(true);
-                            modifiers.setInt(f, f.getModifiers() & ~Modifier.FINAL);
-                        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
-                            throw new RuntimeException(e);
-                        }
+                    if (!definalize(f)) {
+                        System.out.println("Could not definalize field " + f.getDeclaringClass().getName() + "." + f.getName() + " Exception ate, lets see if it works");
                     }
                     return f;
                 }
@@ -77,6 +78,34 @@ public class ReflectionUtils {
             clazz = clazz.getSuperclass();
         }
         return null;
+    }
+
+    private static Field MODIFIER_ACCESS = null;
+    private static boolean accessAttempted = false;
+    private static synchronized boolean definalize(Field f) {
+        if ((f.getModifiers() & Modifier.FINAL) == 0) {
+            return true;
+        }
+
+        if (MODIFIER_ACCESS == null && !accessAttempted) {
+            try {
+                Field modifiers = Field.class.getDeclaredField("modifiers");
+                modifiers.setAccessible(true);
+                MODIFIER_ACCESS = modifiers;
+            } catch (NoSuchFieldException e) {
+                System.out.println("Could not access Field.modifiers to definalize reflection object. This happens on JVMs > 12, going to see if things work, if not use JVM 8-11");
+            }
+            accessAttempted = true;
+        }
+        if (MODIFIER_ACCESS != null) {
+            try {
+                MODIFIER_ACCESS.setInt(f, f.getModifiers() & ~Modifier.FINAL);
+            } catch (IllegalArgumentException | IllegalAccessException e) {
+                throw new RuntimeException("Could not definalize field " + f.getDeclaringClass().getName() + "." + f.getName(), e);
+            }
+            return true;
+        }
+        return false;
     }
 
     /**
