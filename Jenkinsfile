@@ -3,18 +3,32 @@
 pipeline {
     agent {
         docker {
-            image 'gradlewrapper:latest'
+            image 'gradlewrapper:j10'
             args '-v gradlecache:/gradlecache'
         }
     }
     environment {
-        GRADLE_ARGS = '-Dorg.gradle.daemon.idletimeout=5000'
+        GRADLE_ARGS = '-Dorg.gradle.daemon.idletimeout=5000 --console=plain'
+        DISCORD_WEBHOOK = credentials('forge-discord-jenkins-webhook')
+        DISCORD_PREFIX = "Job: Artifactural Branch: ${BRANCH_NAME} Build: #${BUILD_NUMBER}"
+        JENKINS_HEAD = 'https://wiki.jenkins-ci.org/download/attachments/2916393/headshot.png'
     }
 
     stages {
-        stage('fetch') {
+        stage('notify_start') {
+            when {
+                not {
+                    changeRequest()
+                }
+            }
             steps {
-                checkout scm
+                discordSend(
+                    title: "${DISCORD_PREFIX} Started",
+                    successful: true,
+                    result: 'ABORTED', //White border
+                    thumbnail: JENKINS_HEAD,
+                    webhookURL: DISCORD_WEBHOOK
+                )
             }
         }
         stage('buildandtest') {
@@ -50,7 +64,18 @@ pipeline {
     }
     post {
         always {
-            archiveArtifacts artifacts: 'build/libs/**/*.jar', fingerprint: true
+            script {
+                if (env.CHANGE_ID == null) { // This is unset for non-PRs
+                    discordSend(
+                        title: "${DISCORD_PREFIX} Finished ${currentBuild.currentResult}",
+                        description: '```\n' + getChanges(currentBuild) + '\n```',
+                        successful: currentBuild.resultIsBetterOrEqualTo("SUCCESS"),
+                        result: currentBuild.currentResult,
+                        thumbnail: JENKINS_HEAD,
+                        webhookURL: DISCORD_WEBHOOK
+                    )
+                }
+            }
         }
     }
 }
