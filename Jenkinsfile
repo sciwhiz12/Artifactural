@@ -1,4 +1,4 @@
-//@Library('forge-shared-library')_
+@Library('forge-shared-library')_
 
 pipeline {
     agent {
@@ -35,17 +35,11 @@ pipeline {
             steps {
                 sh './gradlew ${GRADLE_ARGS} --refresh-dependencies --continue build test'
                 script {
+                    env.MYGROUP = sh(returnStdout: true, script: './gradlew properties -q | grep "group:" | awk \'{print $2}\'').trim()
+                    env.MYARTIFACT = sh(returnStdout: true, script: './gradlew properties -q | grep "name:" | awk \'{print $2}\'').trim()
                     env.MYVERSION = sh(returnStdout: true, script: './gradlew properties -q | grep "version:" | awk \'{print $2}\'').trim()
                 }
             }
-            /*
-            post {
-                success {
-                    writeChangelog(currentBuild, 'build/changelog.txt')
-                    archiveArtifacts artifacts: 'build/changelog.txt', fingerprint: false
-                }
-            }
-            */
         }
         stage('publish') {
             when {
@@ -58,7 +52,7 @@ pipeline {
             }
             steps {
                 sh './gradlew ${GRADLE_ARGS} publish -PmavenUser=${FORGE_MAVEN_USR} -PmavenPassword=${FORGE_MAVEN_PSW}'
-                sh 'curl --user ${FORGE_MAVEN} http://files.minecraftforge.net/maven/manage/promote/latest/net.minecraftforge.artifactural/${MYVERSION}'
+                sh 'curl --user ${FORGE_MAVEN} https://files.minecraftforge.net/maven/manage/promote/latest/${MYGROUP}.${MYARTIFACT}/${MYVERSION}'
             }
         }
     }
