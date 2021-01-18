@@ -91,6 +91,10 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
         DefaultMavenLocalArtifactRepository maven = (DefaultMavenLocalArtifactRepository)factory.createMavenLocalRepository(); // We use maven local because it bypasses the caching and coping to .m2
         maven.setUrl(local);
         maven.setName(name);
+        maven.metadataSources(m -> {
+            m.mavenPom();
+            m.artifact();
+        });
 
         GradleRepositoryAdapter repo;
 
@@ -139,7 +143,7 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
     public ConfiguredModuleComponentRepository createResolver() {
         MavenResolver resolver = (MavenResolver)local.createResolver();
 
-        GeneratingFileResourceRepository repo = new GeneratingFileResourceRepository();
+        GeneratingFileResourceRepository  repo = new GeneratingFileResourceRepository();
         ReflectionUtils.alter(resolver, "repository", prev -> repo);  // ExternalResourceResolver.repository
         //ReflectionUtils.alter(resolver, "metadataSources", ); //ExternalResourceResolver.metadataSources We need to fix these from returning 'missing'
         // MavenResolver -> MavenMetadataLoader -> FileCacheAwareExternalResourceAccessor -> DefaultCacheAwareExternalResourceAccessor

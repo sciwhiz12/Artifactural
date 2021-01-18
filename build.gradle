@@ -7,16 +7,9 @@ plugins {
 }
 
 group = 'net.minecraftforge'
-version = gitVersion()
 
-def gitVersion() {
-    def raw = grgit.describe(longDescr: true, tags: true)
-    def desc = (raw == null ? 'unknown-unknown-unknown' : raw).split('-') as List
-    def hash = desc.remove(desc.size() - 1)
-    def offset = desc.remove(desc.size() - 1)
-    def tag = desc.join('-')
-    return "${tag}.${offset}"
-}
+version = (grgit.describe(longDescr: true, tags: true) ?: 'unknown-unknown-unknown').split('-').with { "${it[0]}.${it[1]}" }
+println('Version: ' + version + ' Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
 
 sourceSets {
     api
