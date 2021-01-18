@@ -30,8 +30,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Locale;
 
-import org.apache.commons.io.IOUtils;
-
 //These are all standard hashing functions the JRE is REQUIRED to have, so add a nice factory that doesnt require catching annoying exceptions;
 public enum HashFunction {
     MD5("md5", 32),
@@ -43,7 +41,8 @@ public enum HashFunction {
 
     private HashFunction(String algo, int length) {
         this.algo = algo;
-        this.pad = String.format("%0" + length + "d", 0);
+        // must specify locale to get correct number formatting
+        this.pad = String.format(Locale.ENGLISH, "%0" + length + "d", 0);
     }
 
     public String getExtension() {
@@ -90,7 +89,12 @@ public enum HashFunction {
     }
 
     public String hash(InputStream stream) throws IOException {
-        return hash(IOUtils.toByteArray(stream));
+        MessageDigest hash = get();
+        byte[] buf = new byte[1024];
+        int count = -1;
+        while ((count = stream.read(buf)) != -1)
+            hash.update(buf, 0, count);
+        return pad(new BigInteger(1, hash.digest()).toString(16));
     }
 
     public String hash(byte[] data) {

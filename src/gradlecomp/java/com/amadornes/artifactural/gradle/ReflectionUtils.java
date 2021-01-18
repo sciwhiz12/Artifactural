@@ -21,8 +21,6 @@ package com.amadornes.artifactural.gradle;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 public class ReflectionUtils {
