@@ -10,7 +10,7 @@ group = 'net.minecraftforge'
 version = gitVersion()
 
 def gitVersion() {
-    def raw = grgit.describe(longDescr: true)
+    def raw = grgit.describe(longDescr: true, tags: true)
     def desc = (raw == null ? 'unknown-unknown-unknown' : raw).split('-') as List
     def hash = desc.remove(desc.size() - 1)
     def offset = desc.remove(desc.size() - 1)
