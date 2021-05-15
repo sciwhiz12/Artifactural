@@ -25,7 +25,6 @@ import net.minecraftforge.artifactural.api.artifact.MissingArtifactException;
 import net.minecraftforge.artifactural.api.repository.Repository;
 import net.minecraftforge.artifactural.base.artifact.SimpleArtifactIdentifier;
 import net.minecraftforge.artifactural.base.cache.LocatedArtifactCache;
-
 import org.gradle.api.artifacts.ComponentMetadataSupplierDetails;
 import org.gradle.api.artifacts.component.ComponentArtifactIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
@@ -40,6 +39,7 @@ import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactR
 import org.gradle.api.internal.artifacts.repositories.ResolutionAwareRepository;
 import org.gradle.api.internal.artifacts.repositories.descriptor.FlatDirRepositoryDescriptor;
 import org.gradle.api.internal.artifacts.repositories.descriptor.RepositoryDescriptor;
+import org.gradle.api.internal.artifacts.repositories.maven.MavenMetadataLoader;
 import org.gradle.api.internal.artifacts.repositories.resolver.ExternalResourceArtifactResolver;
 import org.gradle.api.internal.artifacts.repositories.resolver.ExternalResourceResolver;
 import org.gradle.api.internal.artifacts.repositories.resolver.MavenResolver;
@@ -50,19 +50,11 @@ import org.gradle.internal.action.InstantiatingAction;
 import org.gradle.internal.component.external.model.ModuleComponentResolveMetadata;
 import org.gradle.internal.component.external.model.ModuleDependencyMetadata;
 import org.gradle.internal.component.external.model.MutableModuleComponentResolveMetadata;
-import org.gradle.internal.component.model.ComponentArtifactMetadata;
-import org.gradle.internal.component.model.ComponentOverrideMetadata;
-import org.gradle.internal.component.model.ComponentResolveMetadata;
-import org.gradle.internal.component.model.ConfigurationMetadata;
-import org.gradle.internal.component.model.ModuleSources;
+import org.gradle.internal.component.model.*;
 import org.gradle.internal.nativeintegration.filesystem.FileSystem;
 import org.gradle.internal.nativeintegration.services.FileSystems;
 import org.gradle.internal.reflect.Instantiator;
-import org.gradle.internal.resolve.result.BuildableArtifactResolveResult;
-import org.gradle.internal.resolve.result.BuildableArtifactSetResolveResult;
-import org.gradle.internal.resolve.result.BuildableComponentArtifactsResolveResult;
-import org.gradle.internal.resolve.result.BuildableModuleComponentMetaDataResolveResult;
-import org.gradle.internal.resolve.result.BuildableModuleVersionListingResolveResult;
+import org.gradle.internal.resolve.result.*;
 import org.gradle.internal.resource.ExternalResourceName;
 import org.gradle.internal.resource.ExternalResourceRepository;
 import org.gradle.internal.resource.LocalBinaryResource;
@@ -71,6 +63,7 @@ import org.gradle.internal.resource.local.LocalFileStandInExternalResource;
 import org.gradle.internal.resource.local.LocallyAvailableExternalResource;
 import org.gradle.internal.resource.metadata.ExternalResourceMetaData;
 import org.gradle.internal.resource.transfer.DefaultCacheAwareExternalResourceAccessor;
+import org.gradle.internal.resource.transport.file.FileTransport;
 
 import java.io.File;
 import java.io.IOException;
@@ -88,7 +81,7 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
 
     public static GradleRepositoryAdapter add(RepositoryHandler handler, String name, File local, Repository repository) {
         BaseRepositoryFactory factory = ReflectionUtils.get(handler, "repositoryFactory"); // We reflect here and create it manually so it DOESN'T get attached.
-        DefaultMavenLocalArtifactRepository maven = (DefaultMavenLocalArtifactRepository)factory.createMavenLocalRepository(); // We use maven local because it bypasses the caching and coping to .m2
+        DefaultMavenLocalArtifactRepository maven = (DefaultMavenLocalArtifactRepository) factory.createMavenLocalRepository(); // We use maven local because it bypasses the caching and coping to .m2
         maven.setUrl(local);
         maven.setName(name);
         maven.metadataSources(m -> {
@@ -141,35 +134,90 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
 
     @Override
     public ConfiguredModuleComponentRepository createResolver() {
-        MavenResolver resolver = (MavenResolver)local.createResolver();
+        MavenResolver oldResolver = (MavenResolver) local.createResolver();
 
-        GeneratingFileResourceRepository  repo = new GeneratingFileResourceRepository();
-        ReflectionUtils.alter(resolver, "repository", prev -> repo);  // ExternalResourceResolver.repository
-        //ReflectionUtils.alter(resolver, "metadataSources", ); //ExternalResourceResolver.metadataSources We need to fix these from returning 'missing'
-        // MavenResolver -> MavenMetadataLoader -> FileCacheAwareExternalResourceAccessor -> DefaultCacheAwareExternalResourceAccessor
-        DefaultCacheAwareExternalResourceAccessor accessor = ReflectionUtils.get(resolver, "mavenMetaDataLoader.cacheAwareExternalResourceAccessor.delegate");
-        ReflectionUtils.alter(accessor, "delegate", prev -> repo); // DefaultCacheAwareExternalResourceAccessor.delegate
-        ReflectionUtils.alter(accessor, "fileResourceRepository", prev -> repo); // DefaultCacheAwareExternalResourceAccessor.fileResourceRepository
-        ExternalResourceArtifactResolver extResolver = ReflectionUtils.invoke(resolver, ExternalResourceResolver.class, "createArtifactResolver"); //Makes the resolver and caches it.
-        ReflectionUtils.alter(extResolver, "repository", prev -> repo);
-        //File transport references, Would be better to get a reference to the transport and work from there, but don't see it stored anywhere.
-        ReflectionUtils.alter(resolver, "cachingResourceAccessor.this$0.repository", prev -> repo);
-        ReflectionUtils.alter(resolver, "cachingResourceAccessor.delegate.delegate", prev -> repo);
+        GeneratingFileResourceRepository repo = new GeneratingFileResourceRepository();
+//        ReflectionUtils.alter(resolver, "repository", prev -> repo);  // ExternalResourceResolver.repository
+
+        // MavenResolver.mavenMetaDataLoader
+        MavenMetadataLoader mavenMetaDataLoader = ReflectionUtils.get(oldResolver, "mavenMetaDataLoader");
+        // MavenMetadataLoader.cacheAwareExternalResourceAccessor
+        DefaultCacheAwareExternalResourceAccessor oldCacheAwareExternalResourceAccessor = ReflectionUtils.get(mavenMetaDataLoader, "cacheAwareExternalResourceAccessor");
+        DefaultCacheAwareExternalResourceAccessor newCacheAwareExternalResourceAccessor = CreationHelper.createDefaultCacheAwareExternalResourceAccessor(
+                oldCacheAwareExternalResourceAccessor, repo, repo
+        );
+
+        MavenMetadataLoader newMavenMetaDataLoader = CreationHelper.createMavenMetaDataLoader(mavenMetaDataLoader, newCacheAwareExternalResourceAccessor);
+//        {
+//            // MavenResolver -> MavenMetadataLoader -> FileCacheAwareExternalResourceAccessor -> DefaultCacheAwareExternalResourceAccessor
+//            DefaultCacheAwareExternalResourceAccessor accessor = ReflectionUtils.get(resolver, "mavenMetaDataLoader.cacheAwareExternalResourceAccessor.delegate");
+//            ReflectionUtils.alter(accessor, "delegate", prev -> repo); // DefaultCacheAwareExternalResourceAccessor.delegate
+//            ReflectionUtils.alter(accessor, "fileResourceRepository", prev -> repo); // DefaultCacheAwareExternalResourceAccessor.fileResourceRepository
+//
+//            // SCI: Do not need, as the ExternalResourceArtifactResolver from createArtifactResolver uses ExternalResourceResolver.repository
+//            ExternalResourceArtifactResolver extResolver = ReflectionUtils.invoke(resolver, ExternalResourceResolver.class, "createArtifactResolver"); //Makes the resolver and caches it.
+//            ReflectionUtils.alter(extResolver, "repository", prev -> repo);
+//        }
+
+        // (MavenResolver as ExternalResourceResolver).(FileCacheAwareExternalResourceAccessor)cachingResourceAccessor.(FileTransport)this$0
+        FileTransport oldTransport = ReflectionUtils.get(oldResolver, "cachingResourceAccessor.this$0");
+        FileTransport newTransport = CreationHelper.createFileTransport(oldTransport, repo);
+//        {
+//            //File transport references, Would be better to get a reference to the transport and work from there, but don't see it stored anywhere.
+//            ReflectionUtils.alter(resolver, "cachingResourceAccessor.this$0.repository", prev -> repo);
+//            ReflectionUtils.alter(resolver, "cachingResourceAccessor.delegate.delegate", prev -> repo);
+//        }
+
+        MavenResolver resolver = CreationHelper.createMavenResolver(oldResolver, newTransport, newMavenMetaDataLoader);
 
         return new ConfiguredModuleComponentRepository() {
             private final ModuleComponentRepositoryAccess local = wrap(resolver.getLocalAccess());
             private final ModuleComponentRepositoryAccess remote = wrap(resolver.getRemoteAccess());
-            @Override public String getId() { return resolver.getId(); }
-            @Override public String getName() { return resolver.getName(); }
-            @Override public ModuleComponentRepositoryAccess getLocalAccess() { return local; }
-            @Override public ModuleComponentRepositoryAccess getRemoteAccess() { return remote; }
-            @Override public Map<ComponentArtifactIdentifier, ResolvableArtifact> getArtifactCache() { return resolver.getArtifactCache(); }
-            @Override public InstantiatingAction<ComponentMetadataSupplierDetails> getComponentMetadataSupplier() { return resolver.getComponentMetadataSupplier(); }
-            @Override public boolean isDynamicResolveMode() { return resolver.isDynamicResolveMode(); }
-            @Override public boolean isLocal() { return resolver.isLocal(); }
 
             @Override
-            public void setComponentResolvers(ComponentResolvers resolver) { }
+            public String getId() {
+                return resolver.getId();
+            }
+
+            @Override
+            public String getName() {
+                return resolver.getName();
+            }
+
+            @Override
+            public ModuleComponentRepositoryAccess getLocalAccess() {
+                return local;
+            }
+
+            @Override
+            public ModuleComponentRepositoryAccess getRemoteAccess() {
+                return remote;
+            }
+
+            @Override
+            public Map<ComponentArtifactIdentifier, ResolvableArtifact> getArtifactCache() {
+                return resolver.getArtifactCache();
+            }
+
+            @Override
+            public InstantiatingAction<ComponentMetadataSupplierDetails> getComponentMetadataSupplier() {
+                return resolver.getComponentMetadataSupplier();
+            }
+
+            @Override
+            public boolean isDynamicResolveMode() {
+                return resolver.isDynamicResolveMode();
+            }
+
+            @Override
+            public boolean isLocal() {
+                return resolver.isLocal();
+            }
+
+            @Override
+            public void setComponentResolvers(ComponentResolvers resolver) {
+            }
+
             @Override
             public Instantiator getComponentMetadataInstantiator() {
                 return resolver.getComponentMetadataInstantiator();
@@ -234,9 +282,11 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
 
     private class GeneratingFileResourceRepository implements FileResourceRepository {
         private final FileSystem fileSystem = FileSystems.getDefault();
+
         private void debug(String message) {
             //System.out.println(message);
         }
+
         private void log(String message) {
             System.out.println(message);
         }
@@ -282,11 +332,11 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
                 Matcher matcher = URL_PATTERN.matcher(relative);
                 if (matcher.matches()) {
                     ArtifactIdentifier identifier = new SimpleArtifactIdentifier(
-                        matcher.group("group").replace('/', '.'),
-                        matcher.group("name"),
-                        matcher.group("version"),
-                        matcher.group("classifier"),
-                        matcher.group("extension"));
+                            matcher.group("group").replace('/', '.'),
+                            matcher.group("name"),
+                            matcher.group("version"),
+                            matcher.group("classifier"),
+                            matcher.group("extension"));
                     Artifact artifact = repository.getArtifact(identifier);
                     return wrap(artifact, identifier);
                 } else if (relative.endsWith("maven-metadata.xml")) {
