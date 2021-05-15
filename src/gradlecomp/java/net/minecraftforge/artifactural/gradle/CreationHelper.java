@@ -49,7 +49,7 @@ class CreationHelper {
         // DefaultCacheAwareExternalResourceAccessor.checksumService
         ChecksumService checksumService = ReflectionUtils.get(delegate, "checksumService");
         // FileTransport.(FileCacheAwareExternalResourceAccessor)resourceAccessor.listener
-        FileResourceListener listener = ReflectionUtils.get(original, "listener");
+        FileResourceListener listener = ReflectionUtils.get(original, "resourceAccessor.listener");
 
         return new FileTransport(name, newRepository, cachedExternalResourceIndex, temporaryFileProvider, timeProvider, artifactCacheLockingManager,
                 producerGuard, checksumService, listener);
