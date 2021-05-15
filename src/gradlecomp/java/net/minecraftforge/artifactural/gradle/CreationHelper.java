@@ -21,6 +21,7 @@ import org.gradle.internal.resource.local.FileResourceListener;
 import org.gradle.internal.resource.local.FileResourceRepository;
 import org.gradle.internal.resource.local.FileStore;
 import org.gradle.internal.resource.local.LocallyAvailableResourceFinder;
+import org.gradle.internal.resource.transfer.CacheAwareExternalResourceAccessor;
 import org.gradle.internal.resource.transfer.DefaultCacheAwareExternalResourceAccessor;
 import org.gradle.internal.resource.transport.file.FileTransport;
 import org.gradle.util.BuildCommencedTimeProvider;
@@ -78,7 +79,7 @@ class CreationHelper {
     }
 
     public static MavenMetadataLoader createMavenMetaDataLoader(MavenMetadataLoader original,
-                                                 DefaultCacheAwareExternalResourceAccessor newCacheAwareExternalResourceAccessor) {
+                                                                CacheAwareExternalResourceAccessor newCacheAwareExternalResourceAccessor) {
 
         // MavenMetadataLoader.resourcesFileStore
         FileStore<String> resourcesFileStore = ReflectionUtils.get(original, "resourcesFileStore");

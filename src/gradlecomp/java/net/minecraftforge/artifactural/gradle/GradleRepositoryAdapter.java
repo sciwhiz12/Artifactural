@@ -40,8 +40,6 @@ import org.gradle.api.internal.artifacts.repositories.ResolutionAwareRepository;
 import org.gradle.api.internal.artifacts.repositories.descriptor.FlatDirRepositoryDescriptor;
 import org.gradle.api.internal.artifacts.repositories.descriptor.RepositoryDescriptor;
 import org.gradle.api.internal.artifacts.repositories.maven.MavenMetadataLoader;
-import org.gradle.api.internal.artifacts.repositories.resolver.ExternalResourceArtifactResolver;
-import org.gradle.api.internal.artifacts.repositories.resolver.ExternalResourceResolver;
 import org.gradle.api.internal.artifacts.repositories.resolver.MavenResolver;
 import org.gradle.api.internal.artifacts.repositories.resolver.MetadataFetchingCost;
 import org.gradle.api.internal.component.ArtifactType;
@@ -62,6 +60,7 @@ import org.gradle.internal.resource.local.FileResourceRepository;
 import org.gradle.internal.resource.local.LocalFileStandInExternalResource;
 import org.gradle.internal.resource.local.LocallyAvailableExternalResource;
 import org.gradle.internal.resource.metadata.ExternalResourceMetaData;
+import org.gradle.internal.resource.transfer.CacheAwareExternalResourceAccessor;
 import org.gradle.internal.resource.transfer.DefaultCacheAwareExternalResourceAccessor;
 import org.gradle.internal.resource.transport.file.FileTransport;
 
@@ -139,13 +138,13 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
         GeneratingFileResourceRepository repo = new GeneratingFileResourceRepository();
 //        ReflectionUtils.alter(resolver, "repository", prev -> repo);  // ExternalResourceResolver.repository
 
+        // (MavenResolver as ExternalResourceResolver).(FileCacheAwareExternalResourceAccessor)cachingResourceAccessor.(FileTransport)this$0
+        FileTransport oldTransport = ReflectionUtils.get(oldResolver, "cachingResourceAccessor.this$0");
+        FileTransport newTransport = CreationHelper.createFileTransport(oldTransport, repo);
+
         // MavenResolver.mavenMetaDataLoader
         MavenMetadataLoader mavenMetaDataLoader = ReflectionUtils.get(oldResolver, "mavenMetaDataLoader");
-        // MavenMetadataLoader.cacheAwareExternalResourceAccessor
-        DefaultCacheAwareExternalResourceAccessor oldCacheAwareExternalResourceAccessor = ReflectionUtils.get(mavenMetaDataLoader, "cacheAwareExternalResourceAccessor");
-        DefaultCacheAwareExternalResourceAccessor newCacheAwareExternalResourceAccessor = CreationHelper.createDefaultCacheAwareExternalResourceAccessor(
-                oldCacheAwareExternalResourceAccessor, repo, repo
-        );
+        CacheAwareExternalResourceAccessor newCacheAwareExternalResourceAccessor = newTransport.getResourceAccessor();
 
         MavenMetadataLoader newMavenMetaDataLoader = CreationHelper.createMavenMetaDataLoader(mavenMetaDataLoader, newCacheAwareExternalResourceAccessor);
 //        {
@@ -158,10 +157,6 @@ public class GradleRepositoryAdapter extends AbstractArtifactRepository implemen
 //            ExternalResourceArtifactResolver extResolver = ReflectionUtils.invoke(resolver, ExternalResourceResolver.class, "createArtifactResolver"); //Makes the resolver and caches it.
 //            ReflectionUtils.alter(extResolver, "repository", prev -> repo);
 //        }
-
-        // (MavenResolver as ExternalResourceResolver).(FileCacheAwareExternalResourceAccessor)cachingResourceAccessor.(FileTransport)this$0
-        FileTransport oldTransport = ReflectionUtils.get(oldResolver, "cachingResourceAccessor.this$0");
-        FileTransport newTransport = CreationHelper.createFileTransport(oldTransport, repo);
 //        {
 //            //File transport references, Would be better to get a reference to the transport and work from there, but don't see it stored anywhere.
 //            ReflectionUtils.alter(resolver, "cachingResourceAccessor.this$0.repository", prev -> repo);
