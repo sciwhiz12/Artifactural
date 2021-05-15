@@ -30,11 +30,11 @@ public class ReflectionUtils {
         try {
             int idx = name.lastIndexOf('.');
             if (idx != -1) {
-                target = drillField(target, name.substring(0, idx));
+                target = drillField(target, name.substring(0, idx), false);
                 if (target == null) throw new IllegalStateException("Could not find field '" + name + "'");
                 name = name.substring(idx + 1);
             }
-            Field f = findField(target.getClass(), name);
+            Field f = findField(target.getClass(), name, true);
             if (f == null) throw new IllegalStateException("Could not find '" + name + "'");
 
             T oldV = (T)f.get(target);
@@ -49,10 +49,10 @@ public class ReflectionUtils {
         }
     }
 
-    private static Object drillField(Object obj, String path) {
+    private static Object drillField(Object obj, String path, boolean definalize) {
         for (String name : path.split("\\.")) {
             if (obj == null) return null;
-            Field f = findField(obj.getClass(), name);
+            Field f = findField(obj.getClass(), name, definalize);
             if (f == null) return null;
             try {
                 obj = f.get(obj);
@@ -63,12 +63,12 @@ public class ReflectionUtils {
         return obj;
     }
 
-    private static Field findField(Class<?> clazz, String name) {
+    private static Field findField(Class<?> clazz, String name, boolean definalize) {
         while (clazz != Object.class) {
             for (Field f : clazz.getDeclaredFields()) {
                 if (f.getName().equals(name)) {
                     f.setAccessible(true);
-                    if (!ModifierAccess.definalize(f)) {
+                    if (definalize && !ModifierAccess.definalize(f)) {
                         System.out.println("Could not definalize field " + f.getDeclaringClass().getName() + "." + f.getName() + " Exception ate, lets see if it works");
                     }
                     return f;
@@ -98,11 +98,11 @@ public class ReflectionUtils {
         try {
             int idx = name.lastIndexOf('.');
             if (idx != -1) {
-                target = drillField(target, name.substring(0, idx));
+                target = drillField(target, name.substring(0, idx), false);
                 if (target == null) throw new IllegalStateException("Could not find field '" + name + "'");
                 name = name.substring(idx + 1);
             }
-            Field f = findField(target.getClass(), name);
+            Field f = findField(target.getClass(), name, false);
             if (f == null) throw new IllegalStateException("Could not find '" + name + "'");
             return (T)f.get(target);
         } catch (IllegalAccessException ex) {
